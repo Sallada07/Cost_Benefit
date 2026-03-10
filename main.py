@@ -23,6 +23,13 @@ PATH_TABLE_ANTUTU = os.path.join(ROOT, FOLDER_TEMP, FILE_TABLE_ANTUTU)
 URL_ANTUTU = "https://antutu.com/en/ranking/rank1.htm"  # trocar pelo link: https://antutu.com/web/ranking
 
 
+def get_div(text:str, div_name:str, start:int = 0):
+    init, final = f'<{div_name}', f'</{div_name}>'
+    pos_init = text.find(init, start)
+    pos_final = text.find(final, pos_init) + len(final) if pos_init != -1 else -1
+    return pos_init, pos_final
+
+
 def extract_antutu_html(limit: int = 30):
     headers = {
         "User-Agent": (
@@ -54,10 +61,32 @@ def extract_antutu_table():
         f.write(html[table_pos_init:table_pos_final])
 
 
-def extract_antutu_models_scores(): pass
-#     # 2) Fallback: parse por texto (quando o site devolve linhas tipo "1Red Magic...; ...; 4002199")
-#     text = re.sub(r"<[^>]+>", "\n", html)  # remove tags grosseiramente
-#     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+def extract_antutu_models_scores():
+
+    # 2) Fallback: parse por texto (quando o site devolve linhas tipo "1Red Magic...; ...; 4002199")
+    with open(PATH_TABLE_ANTUTU, 'r') as f:
+        table = f.read()
+
+    head_cut = get_div(table, 'thead')
+    head = table[head_cut[0]:head_cut[1]]  # separates the header from the body of the table.
+    body_cut = get_div(table, 'tbody', start=head_cut[1])
+    body = table[body_cut[0]:body_cut[1]]  # separates the body of the table.
+
+    text = re.sub(r"<[^>]+>", "\n", head)  # replace tags by "\n"
+    head =  [line.strip() for line in text.splitlines() if line.strip()] # clean header
+    
+    ranges = []
+    gap = get_div(body, 'tr')
+    while gap[0] != -1:
+        ranges.append(gap)
+        gap = get_div(body, 'tr', gap[1])
+    
+    lines = []
+    for gap in ranges:
+        line = body[gap[0]:gap[1]]
+        text = re.sub(r"<[^>]+>", "\n", line)  # replace tags by "\n"
+        line =  [item.strip() for item in text.splitlines() if item.strip()] # clean header
+        lines.append(line)
 
 #     out = []
 #     for ln in lines:
@@ -90,11 +119,11 @@ update = False
 
 if __name__ == "__main__":
     
-    if update: extract_antutu_html(); print("Table updated.")
+    if update: 
+        extract_antutu_html(); print("HTML updated.")
+        extract_antutu_table(); print("Table updated.")
     
-    extract_antutu_table()
-    
-
+    extract_antutu_models_scores()
 
 
     # for rank, model, total in data:
