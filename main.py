@@ -1,23 +1,29 @@
 """
 This is the main module for the application. It serves as the entry point for the program and is responsible for initializing the application. 
 
-The ideia is to get the performece ranking of differents cellphone models from the website "https://www.antutu.com/web/pt/ranking" and get the bests prices for each model from the weebsite "https://www.tudocelular.com/".
+The ideia is to get the performece ranking of differents cellphone models from the website "https://www.antutu.com/web/ranking" and get the bests prices for each model from the weebsite "https://www.tudocelular.com/".
 
 In the future, I plan to add a cost-benefit graphic comparing the performance gain by the price increase.
-
 """
 
+import os
+import pandas as pd
 import re
 import requests
-import pandas as pd  # pip install pandas lxml
 
-def extract_antutu_models_scores(url: str, limit: int|None = None):
-    """
-    Retorna lista de tuplas: (rank, model, total_score)
-    - rank: int
-    - model: str (nome do aparelho)
-    - total_score: int (pontuação total)
-    """
+# PATHs
+ROOT = '.'
+FOLDER_TEMP = 'temp'
+FILE_HTML_ANTUTU = 'antutu_html.txt'
+FILE_TABLE_ANTUTU = 'antutu_table.txt'
+
+PATH_HTML_ANTUTU = os.path.join(ROOT, FOLDER_TEMP, FILE_HTML_ANTUTU)
+PATH_TABLE_ANTUTU = os.path.join(ROOT, FOLDER_TEMP, FILE_TABLE_ANTUTU)
+
+URL_ANTUTU = "https://antutu.com/en/ranking/rank1.htm"  # trocar pelo link: https://antutu.com/web/ranking
+
+
+def extract_antutu_html(limit: int = 30):
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -26,58 +32,29 @@ def extract_antutu_models_scores(url: str, limit: int|None = None):
         )
     }
 
-    r = requests.get(url, headers=headers, timeout=30)  # Last test (version_1.0.0 | 2026-02-09 a-m-d): <Response [200]>
+    r = requests.get(URL_ANTUTU, headers=headers, timeout=limit)  # Last test (version_1.0.1 | 2026-02-09 a-m-d): <Response [200]>
     r.raise_for_status()
-    html = r.text
+    html = r.content
 
-#     # 1) Tentativa: ler a tabela HTML diretamente (mais “limpo” quando funciona)
-#     try:
-#         tables = pd.read_html(html)
+    with open(PATH_HTML_ANTUTU, 'wb') as f:
+        f.write(html)
 
-#         # Procurar uma tabela que tenha colunas parecidas com "Rank", "Device", "Total Score"
-#         best = None
-#         for df in tables:
-#             cols = [str(c).strip().lower() for c in df.columns]
-#             if any("rank" in c for c in cols) and any("total" in c for c in cols):
-#                 best = df
-#                 break
 
-#         if best is not None:
-#             # A AnTuTu pode usar "Device / Spec" ou separar "Device" e "Spec"
-#             # Vamos tentar pegar um campo que contenha o nome do aparelho
-#             col_rank = next(c for c in best.columns if "rank" in str(c).lower())
-#             col_total = next(c for c in best.columns if "total" in str(c).lower())
 
-#             # tentar achar coluna de device
-#             device_candidates = [c for c in best.columns if "device" in str(c).lower()]
-#             if device_candidates:
-#                 col_device = device_candidates[0]
-#                 models = best[col_device].astype(str)
-#             else:
-#                 # fallback: usa a primeira coluna que não seja rank/total e pareça texto
-#                 non = [c for c in best.columns if c not in (col_rank, col_total)]
-#                 col_device = non[0]
-#                 models = best[col_device].astype(str)
 
-#             out = []
-#             for _, row in best.iterrows():
-#                 try:
-#                     rank = int(re.sub(r"\D", "", str(row[col_rank])))
-#                     total = int(re.sub(r"\D", "", str(row[col_total])))
-#                     model = str(row[col_device]).strip()
-#                     if model and total > 0:
-#                         out.append((rank, model, total))
-#                 except Exception:
-#                     continue
+def extract_antutu_table(): 
+    with open(PATH_HTML_ANTUTU, 'rb') as f:
+        html = f.read().decode("utf-8", errors="strict")  # or "replace" if needed
+    
+    start, final = '<table ', '</table>'
+    table_pos_init = html.find(start)
+    table_pos_final = html.find(final, table_pos_init) + len(final)
 
-#             out.sort(key=lambda x: x[0])
-#             if limit:
-#                 out = out[:limit]
-#             if out:
-#                 return out
-#     except Exception:
-#         pass
+    with open(PATH_TABLE_ANTUTU, 'w') as f:
+        f.write(html[table_pos_init:table_pos_final])
 
+
+def extract_antutu_models_scores(): pass
 #     # 2) Fallback: parse por texto (quando o site devolve linhas tipo "1Red Magic...; ...; 4002199")
 #     text = re.sub(r"<[^>]+>", "\n", html)  # remove tags grosseiramente
 #     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
@@ -109,10 +86,16 @@ def extract_antutu_models_scores(url: str, limit: int|None = None):
 #         out = out[:limit]
 #     return out
 
+update = False
 
 if __name__ == "__main__":
-    URL = "https://antutu.com/en/ranking/rank1.htm"  # troque pelo link da sua foto
-    data = extract_antutu_models_scores(URL, limit=30)
+    
+    if update: extract_antutu_html(); print("Table updated.")
+    
+    extract_antutu_table()
+    
+
+
 
     # for rank, model, total in data:
     #     print(f"{rank:>2} | {model} | {total}")
