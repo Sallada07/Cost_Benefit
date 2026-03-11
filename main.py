@@ -47,8 +47,6 @@ def extract_antutu_html(limit: int = 30):
         f.write(html)
 
 
-
-
 def extract_antutu_table(): 
     with open(PATH_HTML_ANTUTU, 'rb') as f:
         html = f.read().decode("utf-8", errors="strict")  # or "replace" if needed
@@ -63,17 +61,18 @@ def extract_antutu_table():
 
 def extract_antutu_models_scores():
 
-    # 2) Fallback: parse por texto (quando o site devolve linhas tipo "1Red Magic...; ...; 4002199")
     with open(PATH_TABLE_ANTUTU, 'r') as f:
         table = f.read()
 
     head_cut = get_div(table, 'thead')
     head = table[head_cut[0]:head_cut[1]]  # separates the header from the body of the table.
+    text = re.sub(r"<[^>]+>", "\n", head)  # replace tags by "\n"
+    head =  [line.strip() for line in text.splitlines() if line.strip()]  # clean header (probably with seven items: 'Rank', 'Device / Spec', 'CPU', 'GPU', 'MEM', 'UX', 'Total Score')
+    head = head[:1] + [item.strip() for item in head[1].split('/')] + head[2:]  # clean header (probably with eight items)
+    
+
     body_cut = get_div(table, 'tbody', start=head_cut[1])
     body = table[body_cut[0]:body_cut[1]]  # separates the body of the table.
-
-    text = re.sub(r"<[^>]+>", "\n", head)  # replace tags by "\n"
-    head =  [line.strip() for line in text.splitlines() if line.strip()] # clean header
     
     ranges = []
     gap = get_div(body, 'tr')
@@ -85,35 +84,17 @@ def extract_antutu_models_scores():
     for gap in ranges:
         line = body[gap[0]:gap[1]]
         text = re.sub(r"<[^>]+>", "\n", line)  # replace tags by "\n"
-        line =  [item.strip() for item in text.splitlines() if item.strip()] # clean header
+        line =  [item.strip() for item in text.splitlines() if item.strip()] # clean lines (probably nine items: 'Rank', 'Device, 'Spec', '| Spec', 'CPU', 'GPU', 'MEM', 'UX', 'Total Score'))
+        line = line[:2] + [''.join(line[2:-5])] + line[-5:]   # clean lines (probably with eight items) 
         lines.append(line)
 
-#     out = []
-#     for ln in lines:
-#         # pega linhas com padrão: começa com rank + texto + ; ... ; total
-#         if ";" in ln and re.match(r"^\d+\s*[A-Za-z]", ln):
-#             parts = [p.strip() for p in ln.split(";") if p.strip()]
-#             if len(parts) >= 2:
-#                 # rank + nome no primeiro pedaço
-#                 m = re.match(r"^(\d+)\s*(.+)$", parts[0])
-#                 if not m:
-#                     continue
-#                 rank = int(m.group(1))
-#                 name = m.group(2)
+    return pd.DataFrame(data=lines, columns=head)
 
-#                 # total score costuma ser o último número grande na linha
-#                 last = parts[-1]
-#                 total_digits = re.sub(r"\D", "", last)
-#                 if not total_digits:
-#                     continue
-#                 total = int(total_digits)
 
-#                 out.append((rank, name, total))
-
-#     out.sort(key=lambda x: x[0])
-#     if limit:
-#         out = out[:limit]
-#     return out
+def create_db():
+    db = extract_antutu_models_scores()
+    df = db[["Device", "Total Score"]].copy()
+    print(df)
 
 update = False
 
@@ -123,8 +104,9 @@ if __name__ == "__main__":
         extract_antutu_html(); print("HTML updated.")
         extract_antutu_table(); print("Table updated.")
     
-    extract_antutu_models_scores()
-
+    create_db()
+    
+    
 
     # for rank, model, total in data:
     #     print(f"{rank:>2} | {model} | {total}")
