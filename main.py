@@ -1,11 +1,15 @@
 """
+Author: Felipe Sallazar
+Github: https://github.com/Sallada07
+
 This is the main module for the application. It serves as the entry point for the program and is responsible for initializing the application. 
 
-The ideia is to get the performece ranking of differents cellphone models from the website "https://www.antutu.com/web/ranking" and get the bests prices for each model from the weebsite "https://www.tudocelular.com/".
+The ideia is to get the performece ranking of differents cellphone models from the website "https://www.antutu.com/web/ranking" and get the bests prices for each model from the website "https://www.tudocelular.com/".
 
 In the future, I plan to add a cost-benefit graphic comparing the performance gain by the price increase.
 """
 
+import numpy as np
 import os
 import pandas as pd
 import re
@@ -30,7 +34,7 @@ def get_div(text:str, div_name:str, start:int = 0):
     return pos_init, pos_final
 
 
-def extract_antutu_html(limit: int = 30):
+def _extract_antutu_html(limit: int = 30):
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -47,7 +51,7 @@ def extract_antutu_html(limit: int = 30):
         f.write(html)
 
 
-def extract_antutu_table(): 
+def _extract_antutu_table(): 
     with open(PATH_HTML_ANTUTU, 'rb') as f:
         html = f.read().decode("utf-8", errors="strict")  # or "replace" if needed
     
@@ -59,7 +63,7 @@ def extract_antutu_table():
         f.write(html[table_pos_init:table_pos_final])
 
 
-def extract_antutu_models_scores():
+def _extract_antutu_models_scores():
 
     with open(PATH_TABLE_ANTUTU, 'r') as f:
         table = f.read()
@@ -91,18 +95,24 @@ def extract_antutu_models_scores():
     return pd.DataFrame(data=lines, columns=head)
 
 
+def _get_price_from_tudocelular(): pass
+
+
 def create_db():
-    db = extract_antutu_models_scores()
+    db = _extract_antutu_models_scores()
     df = db[["Device", "Total Score"]].copy()
-    print(df)
+    df["Price"] = np.nan
+    
+
+def update_table():
+    _extract_antutu_html(); print("HTML updated.")
+    _extract_antutu_table(); print("Table updated.")
 
 update = False
 
 if __name__ == "__main__":
     
-    if update: 
-        extract_antutu_html(); print("HTML updated.")
-        extract_antutu_table(); print("Table updated.")
+    if update: update_table()
     
     create_db()
     
